@@ -2,3 +2,4 @@
 pandas>=2.2                    # limpeza e transformacao
 psycopg2-binary>=2.9           # conexao e carga no PostgreSQL
 pytest>=8.0                    # testes das funcoes de limpeza
+ipykernel>=6.29                # notebooks de exploração/auditoria no VS Code
