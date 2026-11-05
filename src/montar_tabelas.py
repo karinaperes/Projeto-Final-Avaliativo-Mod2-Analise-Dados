@@ -84,14 +84,14 @@ def main():
     # ETAPA 2 - UM VENCEDOR POR ITEM  (regra 2)
     # =========================================================================================
     # COMPLETE: fique so com os resultados que NAO estao cancelados. O til (~) inverte True/False: ~resultados["cancelado"]
-    resultados = resultados[____].copy()
+    resultados = resultados[~resultados["cancelado"]].copy()
     # ordem 1 = vencedor. Quando a ordem vem vazia, ela vale 1. COMPLETE: preencha os vazios (fillna) com 1
-    resultados["ordem"] = pd.to_numeric(resultados["ordem_classificacao_srp"], errors="coerce").fillna(____)
+    resultados["ordem"] = pd.to_numeric(resultados["ordem_classificacao_srp"], errors="coerce").fillna(1)
     resultados["sequencial"] = pd.to_numeric(resultados["sequencial_resultado"], errors="coerce").fillna(1)
     # Ordena para o vencedor ficar em primeiro: por item, depois pela ordem, depois pelo sequencial (desempate)
     resultados = resultados.sort_values(["numero_controle_pncp", "numero_item", "ordem", "sequencial"])
     # COMPLETE: mantenha so a PRIMEIRA linha de cada item. Metodo: resultados.drop_duplicates([colunas que identificam o item])
-    resultados = resultados.____(["numero_controle_pncp", "numero_item"])
+    resultados = resultados.drop_duplicates(["numero_controle_pncp", "numero_item"])
 
     # =========================================================================================
     # ETAPA 3 - JUNTAR OS 3 ARQUIVOS: SO ENTRAM ITENS COM RESULTADO  (regra 3)
