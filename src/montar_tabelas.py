@@ -39,21 +39,21 @@ def main():
     # --- compras.csv ---
     # .map(funcao) aplica a funcao em cada linha da coluna.   Regra 10: o CNPJ do orgao e de pessoa juridica ("PJ")
     # COMPLETE: o segundo argumento de limpar_documento e o tipo de pessoa; aqui e sempre "PJ"
-    compras["cnpj_orgao"] = compras["cnpj_orgao"].map(lambda v: limpeza.limpar_documento(v, ____))
+    compras["cnpj_orgao"] = compras["cnpj_orgao"].map(lambda v: limpeza.limpar_documento(v, "PJ"))
     # COMPLETE: o nome do orgao deve ser padronizado (maiusculas etc.): passe a funcao limpeza.padronizar_nome (sem parenteses)
-    compras["nome_orgao"] = compras["razao_social_orgao"].map(____)
+    compras["nome_orgao"] = compras["razao_social_orgao"].map(limpeza.padronizar_nome)
     compras["uf_sigla"] = compras["uf_sigla"].map(limpeza.padronizar_nome)
     compras["uf_nome"] = compras["uf_nome"].map(limpeza.padronizar_nome)
     # Regra 11: o arquivo nao traz a regiao; busque no dicionario REGIAO pela sigla da UF
     # COMPLETE: .map(REGIAO) troca cada sigla (ex.: "DF") pela regiao ("Centro-Oeste")
-    compras["regiao"] = compras["uf_sigla"].map(____)
+    compras["regiao"] = compras["uf_sigla"].map(REGIAO)
     compras["poder"] = compras["poder_id"].map(PODER).fillna("Não informado")
     compras["modalidade_id"] = compras["modalidade_id"].astype(int)
     # Regra 9: o nome da modalidade vem do codigo (modalidade_id), nao do texto do arquivo
     # COMPLETE: use .map(MODALIDADES) na coluna modalidade_id
-    compras["nome_modalidade"] = compras["modalidade_id"].map(____)
+    compras["nome_modalidade"] = compras["modalidade_id"].map(MODALIDADES)
     # COMPLETE: converta a data de publicacao com a sua funcao limpeza.converter_data
-    compras["data_publicacao"] = compras["data_publicacao"].map(____)
+    compras["data_publicacao"] = compras["data_publicacao"].map(limpeza.converter_data)
     compras["objeto_compra"] = compras["objeto_compra"].map(limpeza.limpar_texto)
 
     # --- itens.csv ---
@@ -61,9 +61,9 @@ def main():
     itens["material_ou_servico"] = itens["material_ou_servico"].map(limpeza.limpar_texto)
     # Regra 12: numeros em texto -> numero. COMPLETE: use limpeza.converter_numero
     for coluna in ["quantidade", "valor_unitario_estimado"]:
-        itens[coluna] = itens[coluna].map(____)
+        itens[coluna] = itens[coluna].map(limpeza.converter_numero)
     # "sigiloso" vem como texto "True"/"False". COMPLETE: compare o texto em minusculas (.str.lower()) com "true"
-    itens["sigiloso"] = itens["sigiloso"].str.lower() == ____
+    itens["sigiloso"] = itens["sigiloso"].str.lower() == "true"
     itens["numero_item"] = itens["numero_item"].astype(int)
 
     # --- resultados.csv ---
@@ -72,13 +72,13 @@ def main():
     resultados["porte"] = resultados["porte"].map(limpeza.limpar_texto)
     # O CNPJ/CPF do fornecedor depende do tipo da pessoa, que esta na coluna tipo_pessoa (PJ, PF ou PE)
     # COMPLETE: passe o tipo da linha (a variavel tipo) como segundo argumento
-    resultados["ni_fornecedor"] = [limpeza.limpar_documento(ni, ____)
+    resultados["ni_fornecedor"] = [limpeza.limpar_documento(ni, tipo)
                                    for ni, tipo in zip(resultados["ni_fornecedor"], resultados["tipo_pessoa"])]
     for coluna in ["quantidade_homologada", "valor_unitario_homologado"]:
         resultados[coluna] = resultados[coluna].map(limpeza.converter_numero)
     resultados["data_resultado"] = resultados["data_resultado"].map(limpeza.converter_data)
     # Resultado cancelado = a coluna data_cancelamento esta preenchida. COMPLETE: compare com o texto vazio ""
-    resultados["cancelado"] = resultados["data_cancelamento"].str.strip() != ____
+    resultados["cancelado"] = resultados["data_cancelamento"].str.strip() != ""
 
     # =========================================================================================
     # ETAPA 2 - UM VENCEDOR POR ITEM  (regra 2)
