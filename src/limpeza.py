@@ -101,7 +101,7 @@ def limpar_documento(texto, tipo_pessoa=None):
     if tipo_pessoa == "PE":
         return texto.upper()
     # COMPLETE: fique so com os caracteres que sao digitos:  "".join(c for c in texto if c.isdigit())
-    digitos = ____
+    digitos = "".join(c for c in texto if c.isdigit())
     if digitos == "":
         return None
     if tipo_pessoa == "PJ":
@@ -113,7 +113,7 @@ def limpar_documento(texto, tipo_pessoa=None):
     if len(digitos) > tamanho:               # digitos demais: documento impossivel
         return None
     # COMPLETE: complete com zeros a esquerda ate o tamanho certo (metodo .zfill(tamanho))
-    return digitos.____
+    return digitos.zfill(tamanho)
 
 
 # ---------------------------------------------------------------------------------------------
