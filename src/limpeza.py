@@ -129,32 +129,32 @@ def converter_numero(texto):
         return None
     texto = texto.replace("R$", "").replace(" ", "")
     # COMPLETE: e negativo se comecar com "(" ou com "-", ou se terminar com "-":  (1.500,00)  -12,50  1.500,00-
-    negativo = ____
+    negativo = texto.startswith(("(", "-")) or texto.endswith("-")
     texto = texto.strip("()-")
     if "." in texto and "," in texto:
         if texto.rfind(",") > texto.rfind("."):
             # formato 1.234,56 (a virgula vem por ultimo). COMPLETE: tire os pontos e troque a virgula por ponto
-            texto = ____
+            texto = texto.replace(".", "").replace(",", ".")
         else:
             # formato 1,234.56 (o ponto vem por ultimo). COMPLETE: tire as virgulas
-            texto = ____
+            texto = texto.replace(",", "")
     elif "," in texto:
         if texto.count(",") > 1:
             # 1,234,567 (virgula repetida = milhar). COMPLETE: tire as virgulas
-            texto = ____
+            texto = texto.replace(",", "")
         else:
             # 12,5 (virgula sozinha = decimal). COMPLETE: troque a virgula por ponto
-            texto = ____
+            texto = texto.replace(",", ".")
     elif texto.count(".") > 1:
         # 1.234.567 (ponto repetido = milhar). COMPLETE: tire os pontos
-        texto = ____
+        texto = texto.replace(".", "")
     # (ponto sozinho, como em 1234.56 ou 746.815, ja e decimal: nao precisa mexer)
     try:
         numero = float(texto)
     except ValueError:
         return None
     # COMPLETE: se for negativo, devolva o numero com sinal de menos; senao, o proprio numero
-    return ____
+    return -numero if negativo else numero
 
 
 # ---------------------------------------------------------------------------------------------
