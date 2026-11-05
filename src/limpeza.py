@@ -166,16 +166,13 @@ def converter_data(texto):
     texto = limpar_texto(texto)
     if texto is None:
         return None
-    # COMPLETE: fique so com os 10 primeiros caracteres (o texto[:10] descarta a hora)
-    texto = texto[:____]
+    texto = texto[:10]                        # descarta a hora
     for formato in FORMATOS_DATA:
         try:
-            # COMPLETE: strptime le o texto no formato; .date() tira a hora. Use datetime.strptime(texto, formato).date()
-            data = ____
+            data = datetime.strptime(texto, formato).date()
         except ValueError:
             continue                          # nao era esse formato: tente o proximo
-        # COMPLETE: so vale se o ano estiver entre 2000 e 2030 (use data.year)
-        if ____:
+        if 2000 <= data.year <= 2030:
             return data
         return None
     return None
