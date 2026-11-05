@@ -98,7 +98,7 @@ def main():
     # =========================================================================================
     # merge junta tabelas pelas colunas em comum. how="inner" fica so com o que existe nos DOIS lados.
     # COMPLETE: escreva how="inner" na primeira junção (itens que nao tem resultado ficam de fora)
-    fato = itens.merge(resultados, on=["numero_controle_pncp", "numero_item"], how=____)
+    fato = itens.merge(resultados, on=["numero_controle_pncp", "numero_item"], how="inner")
     fato = fato.merge(compras, on="numero_controle_pncp")
     print(f"Itens com resultado, antes de rejeitar: {len(fato)}")
 
