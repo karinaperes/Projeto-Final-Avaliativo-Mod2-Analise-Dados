@@ -122,18 +122,18 @@ def main():
     rejeitado = (
         ~(fato["quantidade"] > 0)                          # quantidade vazia ou <= 0
         # COMPLETE: valor unitario ESTIMADO ausente ou <= 0
-        | ____
+        | ~(fato["valor_unitario_estimado"] > 0)
         | ~(fato["valor_unitario_homologado"] > 0)         # valor unitario homologado ausente ou <= 0
         | fato["sigiloso"]                                 # orcamento sigiloso
         # COMPLETE: valor total estimado menor que R$ 1  (use est)
-        | ____
+        | (est <= 1)
         # COMPLETE: valor total homologado mais de 1000 vezes o estimado (use hom e est)
-        | ____
+        | (hom > 1000 * est)
         | (est > 1e12) | (hom > 1e12)                      # valores acima de R$ 1 trilhao (estouram o DECIMAL do banco)
     )
     print(f"Itens rejeitados (nao entram na fato): {rejeitado.sum()}   (prova real: 99)")
     # COMPLETE: fique so com os itens NAO rejeitados (use ~rejeitado)
-    fato = fato[____].copy()
+    fato = fato[~rejeitado].copy()
 
     # =========================================================================================
     # ETAPA 6 - COMPARAVEL E ECONOMIA  (regra 6)
