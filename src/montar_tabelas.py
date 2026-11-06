@@ -142,10 +142,10 @@ def main():
     razao = hom / est
     # Comparavel = NAO e Credenciamento (modalidade 12) E a razao homologado/estimado esta entre 0,1 e 10.
     # COMPLETE: modalidade diferente de 12;  razao.between(0.1, 10) ja esta escrito logo depois
-    fato["comparavel"] = ((fato["modalidade_id"] != ____) & razao.between(____)).astype(int)
+    fato["comparavel"] = ((fato["modalidade_id"] != 12) & razao.between(0.1, 10)).astype(int)
     # Economia = estimado - homologado, so nos itens comparaveis (nos demais vale 0)
     # COMPLETE: estimado menos homologado (use est e hom)
-    fato["economia_valor"] = (____).where(fato["comparavel"] == 1, 0.0).round(2)
+    fato["economia_valor"] = (est - hom).where(fato["comparavel"] == 1, 0.0).round(2)
 
     # =========================================================================================
     # ETAPA 7 - CRONOLOGIA  (regra 7)
@@ -153,12 +153,12 @@ def main():
     fato["data_homologacao"] = fato["data_resultado"]
     # Homologar ANTES de publicar e impossivel: a data de homologacao vira vazia (o item continua na fato)
     # COMPLETE: antes = a data de homologacao e menor que a data de publicacao
-    antes = ____
+    antes = fato["data_homologacao"] < fato["data_publicacao"]
     # COMPLETE: nas linhas "antes", coloque None (vazio) na data de homologacao
-    fato.loc[antes, "data_homologacao"] = ____
+    fato.loc[antes, "data_homologacao"] = None
     # ciclo = dias entre a publicacao e a homologacao (so quando existe homologacao)
     # COMPLETE: subtrair duas datas da um "intervalo"; o numero de dias esta em .days
-    fato["dias_ciclo"] = [(h - p).____ if h is not None and not pd.isna(h) else None
+    fato["dias_ciclo"] = [(h - p).days if h is not None and not pd.isna(h) else None
                           for h, p in zip(fato["data_homologacao"], fato["data_publicacao"])]
 
     # =========================================================================================
