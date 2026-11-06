@@ -109,9 +109,9 @@ def main():
     qtd_homologada = fato["quantidade_homologada"]
     # COMPLETE: .where(condicao, outro) mantem o valor onde a condicao e verdadeira e usa "outro" onde e falsa.
     # Queremos a quantidade homologada quando ela for maior que 0; senao a quantidade do item. Condicao: qtd_homologada > 0
-    fato["quantidade"] = qtd_homologada.where(____, fato["quantidade"])
+    fato["quantidade"] = qtd_homologada.where(qtd_homologada > 0, fato["quantidade"])
     # COMPLETE: valor total estimado = valor unitario estimado x quantidade (round(2) arredonda em centavos)
-    fato["valor_total_estimado"] = (____).round(2)
+    fato["valor_total_estimado"] = (fato["valor_unitario_estimado"] * fato["quantidade"]).round(2)
     fato["valor_total_homologado"] = (fato["valor_unitario_homologado"] * fato["quantidade"]).round(2)
 
     # =========================================================================================
