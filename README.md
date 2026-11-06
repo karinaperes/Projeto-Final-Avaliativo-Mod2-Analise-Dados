@@ -79,7 +79,12 @@ PNCP (CSVs brutos)  →  Python (auditoria e limpeza)  →  PostgreSQL (modelo e
 ├── notebooks/
 │   ├── 01_exploracao.ipynb   # entendimento das colunas e das sujeiras
 │   └── 02_auditoria.ipynb    # contagem de cada problema
-├── src/                  # código do pipeline
+├── src/
+│   ├── config.py             # caminhos do projeto e leitura do .env
+│   ├── limpeza.py            # funções de limpeza, com autoteste
+│   ├── montar_tabelas.py     # regras de negócio: gera a fato e as 4 dimensões
+│   ├── banco.py              # conexão e carga em lote no PostgreSQL
+│   └── carregar.py           # cria o banco e carrega as tabelas
 ├── .env.example          # modelo das credenciais do banco
 └── requirements.txt      # dependências Python
 ```
@@ -136,7 +141,51 @@ Contagens feitas em [`notebooks/02_auditoria.ipynb`](notebooks/02_auditoria.ipyn
 
 ## 8. Decisões técnicas e regras de negócio
 
-*Em construção (Sprints 2 e 3).*
+### 8.1 Limpeza (`src/limpeza.py`)
+
+Cada função resolve um tipo de problema do dicionário da seção 7. As funções são testadas com 54 exemplos (`python -m src.limpeza`), que cobrem os casos difíceis: documento com máscara, zeros perdidos, valores em formatos brasileiro e americano, negativos entre parênteses, datas em vários formatos e data impossível.
+
+| Função | O que faz | Decisão |
+|---|---|---|
+| `limpar_texto` | Remove invisíveis e espaços repetidos, conserta acento quebrado e converte nulos disfarçados em vazio | O `0` só é nulo em colunas de texto; em números ele é um valor válido |
+| `padronizar_nome` | Coloca o nome em maiúsculas e com espaços únicos | Garante que o mesmo órgão ou fornecedor escrito de formas diferentes seja agrupado |
+| `limpar_documento` | Mantém só os dígitos e completa com zeros à esquerda | O tamanho vem do `tipo_pessoa`: 14 dígitos (PJ) ou 11 (PF). Documento estrangeiro (PE) fica como veio. Documento com dígitos demais é descartado |
+| `converter_numero` | Converte texto em número | Regra 12: símbolo sozinho é decimal; repetido é milhar; com ponto e vírgula, o último é o decimal |
+| `converter_data` | Testa cada formato conhecido e descarta a hora | Data impossível (`31/02/2025`) ou ano fora de 2000 a 2030 vira vazio |
+
+Todos os arquivos são lidos como texto (`dtype=str`), para que nenhum CNPJ perca zeros e nenhum valor seja convertido antes da limpeza.
+
+### 8.2 Regras de negócio (`src/montar_tabelas.py`)
+
+| Regra | Decisão | Efeito na base |
+|---|---|---|
+| Grão | Uma linha por item contratado (`numero_controle_pncp` + `numero_item`) | — |
+| Vencedor (regra 2) | Descartar resultados cancelados; depois, menor `ordem_classificacao_srp` (vazia vale 1) e, no empate, menor `sequencial_resultado` | Um resultado por item |
+| Só itens com resultado (regra 3) | Junção do tipo *inner* entre itens e resultados | 852 itens ficam de fora; 6.225 avaliados |
+| Valores (regra 5) | Total = valor unitário × quantidade homologada (ou a quantidade do item, se a homologada for vazia ou zero), no estimado e no homologado | Estimado e homologado comparados na mesma quantidade |
+| Rejeição (regra 4) | Ver a tabela abaixo | 99 itens rejeitados |
+| Comparável (regra 6) | Não é Credenciamento e a razão homologado ÷ estimado está entre 0,1 e 10 | 5.457 comparáveis; 601 de Credenciamento e 68 com razão fora da faixa ficam fora da economia |
+| Economia (regra 6) | Estimado − homologado, só nos comparáveis. O percentual é soma ÷ soma, e não a média dos percentuais | 14,46% |
+| Cronologia (regra 7) | Homologação antes da publicação: o item fica, mas sem data de homologação e sem ciclo. Mesmo dia = ciclo 0 | 230 itens sem ciclo |
+| Perfil (regra 8) | As palavras obra, construção, reforma e engenharia na descrição ou no objeto têm prioridade; depois, Serviço → Serviços e Material → Bens | 3 perfis |
+| Modalidade (regra 9) | O nome vem do código (`modalidade_id`), não do texto do arquivo | 7 modalidades |
+| Órgão (regra 10) | Unidade = CNPJ distinto; o nome é padronizado | 363 unidades |
+| Região (regra 11) | Calculada a partir da UF | 5 regiões |
+
+**Itens rejeitados (regra 4).** Um item pode cair em mais de um motivo: 43 caíram em um, 33 em dois e 23 em três.
+
+| Motivo | Itens |
+|---|---|
+| Valor total estimado menor que R$ 1 | 85 |
+| Homologado mais de 1.000 vezes o estimado | 60 |
+| Valor unitário estimado ausente ou ≤ 0 | 23 |
+| Valor unitário homologado ausente ou ≤ 0 | 6 |
+| Valor acima de R$ 1 trilhão (estouraria o `DECIMAL` do banco) | 3 |
+| Quantidade ausente ou ≤ 0 | 1 |
+| Orçamento sigiloso | 0 |
+| **Total de itens rejeitados** | **99** |
+
+Os itens rejeitados não entram na fato. São erros de cadastro que distorceriam os totais e a economia.
 
 ## 9. Modelagem dimensional
 
@@ -144,7 +193,26 @@ Contagens feitas em [`notebooks/02_auditoria.ipynb`](notebooks/02_auditoria.ipyn
 
 ## 10. Resultados
 
-*Em construção (Sprints 5 e 6).*
+### 10.1 Conferência do pipeline Python
+
+A saída de `python -m src.montar_tabelas` bate com todos os totais de conferência do enunciado (anexo 8):
+
+| Indicador | Resultado |
+|---|---|
+| Itens na fato | 6.126 |
+| Contratações distintas | 1.962 |
+| Fornecedores | 2.652 |
+| Órgãos (CNPJ) | 363 |
+| Volume homologado | R$ 8.044.498.805,74 |
+| Itens comparáveis | 5.457 |
+| Economia | 14,46% |
+| Ciclo médio / máximo | 48,1 / 611 dias |
+| Itens sem ciclo | 230 |
+| Perfil (% do volume homologado) | Obras e engenharia 60,8 · Serviços 36,6 · Bens 2,6 |
+
+A conferência também encontrou um erro durante o desenvolvimento: a regra "valor estimado menor que R$ 1" foi escrita com `<=` e excluía 11 itens válidos (110 rejeitados em vez de 99). Com o operador corrigido para `<`, todos os números bateram.
+
+*Respostas às 6 perguntas: em construção (Sprints 5 e 6).*
 
 ## 11. Dashboard
 
@@ -162,7 +230,14 @@ source .venv/bin/activate        # no Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-*Em construção: configuração do banco, execução do pipeline e abertura do dashboard.*
+**Pipeline Python** (na raiz do projeto, com o `.venv` ativo):
+
+```bash
+python -m src.limpeza           # autoteste das funções: 54 de 54
+python -m src.montar_tabelas    # gera a fato e as dimensões em data/processed/ e imprime a conferência
+```
+
+*Em construção: configuração do banco, carga e abertura do dashboard.*
 
 ## 13. Planejamento em Sprints
 
@@ -172,25 +247,32 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 |---|---|---|
 | 0 | Fundação e exploração dos dados | 18–19/10 |
 | 1 | Auditoria dos dados | 19–20/10 |
-| 2 | Limpeza (`src/limpeza.py`) | 20–22/10 |
-| 3 | Montar fato e dimensões | 22–24/10 |
-| 4 | Banco PostgreSQL | 24–26/10 |
-| 5 | Perguntas em SQL | 26–27/10 |
-| 6 | Power BI | 27–31/10 |
-| 7 | Documentação e entrega | 31/10–02/11 |
+| 2 | Limpeza (`src/limpeza.py`) | 20–29/10 |
+| 3 | Montar fato e dimensões | 30/10–06/11 |
+| 4 | Banco PostgreSQL | 06–07/11 |
+| 5 | Perguntas em SQL | 07/11 |
+| 6 | Power BI | 07–08/11 |
+| 7 | Documentação e entrega | 08–09/11 |
+
+**Replanejamento.** O plano inicial previa a entrega em 02/11. As Sprints 2 e 3 levaram mais tempo que o estimado e o prazo foi estendido em uma semana; as datas das Sprints 2 a 7 foram reajustadas no GitHub Projects (comparar os prints de início e de andamento abaixo).
 
 *Figura final das Sprints (`docs/img/sprints.png`): em construção (Sprint 7).*
 
 ### Evolução do quadro
 
-**Início (18/10)**
+**Planejamento inicial (18/10)**
 
 ![Kanban no início](docs/img/planejamento/01-inicio-kanban.png)
 ![Tabela no início](docs/img/planejamento/02-inicio-tabela.png)
 ![Roadmap no início](docs/img/planejamento/03-inicio-roadmap.png)
 ![Milestones no início](docs/img/planejamento/04-inicio-milestones.png)
 
-*Meio e fim: em construção.*
+**Andamento: após a Sprint 3 (06/11)**
+
+![Kanban em andamento](docs/img/planejamento/05-andamento-kanban.png)
+![Tabela em andamento](docs/img/planejamento/06-andamento-tabela.png)
+
+*Entrega final: em construção.*
 
 ## 14. Melhorias futuras
 
