@@ -32,10 +32,10 @@ def tuplas(tabela, colunas):
 def inserir(con, tabela, colunas, dados):
     """Monta o INSERT INTO ... VALUES (%s, %s, ...) e envia todas as linhas de uma vez."""
     # Um %s para cada coluna. COMPLETE: monte uma lista com "%s" repetido len(colunas) vezes:  ["%s"] * len(colunas)
-    marcadores = ", ".join(____)
+    marcadores = ", ".join(["%s"] * len(colunas))
     sql = f"INSERT INTO {tabela} ({', '.join(colunas)}) VALUES ({marcadores})"
     # COMPLETE: envie em lote com banco.inserir_em_lote(conexao, sql, linhas)
-    banco.____(con, sql, tuplas(dados, colunas))
+    banco.inserir_em_lote(con, sql, tuplas(dados, colunas))
     print(f"   {tabela}: {len(dados)} linhas")
 
 
@@ -43,37 +43,43 @@ def main():
     # 1) Banco (o recriar_banco apaga e cria de novo) e tabelas
     banco.recriar_banco()
     con = banco.conectar()
-    # COMPLETE: execute o arquivo SQL de criacao: banco.executar_script(conexao, caminho_do_arquivo)
-    banco.____(con, config.PASTA_SQL / "01_criar_banco.sql")
+    try:
+        banco.executar_script(con, config.PASTA_SQL / "01_criar_banco.sql")
 
-    # 2) Dimensoes PRIMEIRO: a fato tem chave estrangeira para elas, entao elas precisam existir antes.
-    print("Carga:")
-    for nome, colunas in [("dim_orgao", ["sk_orgao", "cnpj_orgao", "nome_orgao", "poder"]),
-                          ("dim_fornecedor", ["sk_fornecedor", "ni_fornecedor", "nome_fornecedor", "tipo_pessoa", "porte"]),
-                          ("dim_modalidade", ["sk_modalidade", "modalidade_id", "nome_modalidade"]),
-                          ("dim_localidade", ["sk_localidade", "uf_sigla", "uf_nome", "regiao"])]:
-        # dtype=str: o CNPJ nao pode perder o zero da esquerda ao ser lido
-        inserir(con, nome, colunas, ler(nome, dtype=str))
+        # 2) Dimensoes PRIMEIRO: a fato tem chave estrangeira para elas, entao elas precisam existir antes.
+        print("Carga:")
+        for nome, colunas in [("dim_orgao", ["sk_orgao", "cnpj_orgao", "nome_orgao", "poder"]),
+                              ("dim_fornecedor", ["sk_fornecedor", "ni_fornecedor", "nome_fornecedor", "tipo_pessoa", "porte"]),
+                              ("dim_modalidade", ["sk_modalidade", "modalidade_id", "nome_modalidade"]),
+                              ("dim_localidade", ["sk_localidade", "uf_sigla", "uf_nome", "regiao"])]:
+            # dtype=str: o CNPJ nao pode perder o zero da esquerda ao ser lido
+            inserir(con, nome, colunas, ler(nome, dtype=str))
 
-    # 3) Fato (depois das dimensoes)
-    fato = ler("fato_item_contratado")
-    # dias_ciclo vem como 48.0 (decimal) porque tem vazios; o banco quer inteiro. COMPLETE: converta para o tipo "Int64"
-    fato["dias_ciclo"] = fato["dias_ciclo"].astype(____)
-    colunas = ["numero_controle_pncp", "numero_item", "sk_orgao", "sk_fornecedor", "sk_modalidade", "sk_localidade",
-               "data_publicacao", "data_homologacao", "descricao_item", "perfil_gasto", "quantidade",
-               "valor_unitario_estimado", "valor_total_estimado", "valor_unitario_homologado", "valor_total_homologado",
-               "comparavel", "economia_valor", "dias_ciclo"]
-    # COMPLETE: o nome da tabela da fato
-    inserir(con, ____, colunas, fato)
+        # 3) Fato (depois das dimensoes)
+        fato = ler("fato_item_contratado")
+        # dias_ciclo vem como 48.0 (decimal) porque tem vazios; "Int64" e o inteiro do pandas que aceita vazio
+        fato["dias_ciclo"] = fato["dias_ciclo"].astype("Int64")
+        colunas = ["numero_controle_pncp", "numero_item", "sk_orgao", "sk_fornecedor", "sk_modalidade", "sk_localidade",
+                   "data_publicacao", "data_homologacao", "descricao_item", "perfil_gasto", "quantidade",
+                   "valor_unitario_estimado", "valor_total_estimado", "valor_unitario_homologado", "valor_total_homologado",
+                   "comparavel", "economia_valor", "dias_ciclo"]
+        inserir(con, "fato_item_contratado", colunas, fato)
 
-    # 4) Conferencia: o que esta no banco tem que bater com a prova real (anexo 8 do enunciado)
-    print("Conferencia:")
-    for tabela, esperado in [("fato_item_contratado", 6126), ("dim_orgao", 363), ("dim_fornecedor", 2652),
-                             ("dim_modalidade", 7), ("dim_localidade", 27)]:
-        # COMPLETE: conte as linhas da tabela com SELECT COUNT(*)
-        n = banco.consultar(con, f"SELECT ____ FROM {tabela}")[0][0]
-        print(f"   {tabela}: {n} (esperado {esperado}) -> {'OK' if n == esperado else 'DIVERGENTE'}")
-    con.close()
+        # 4) Conferencia: o que esta no banco tem que bater com a prova real (anexo 8 do enunciado)
+        print("Conferencia:")
+        for tabela, sk, esperado in [("fato_item_contratado", "sk_fato", 6126), ("dim_orgao", "sk_orgao", 363),
+                                     ("dim_fornecedor", "sk_fornecedor", 2652), ("dim_modalidade", "sk_modalidade", 7),
+                                     ("dim_localidade", "sk_localidade", 27)]:
+            # COUNT(*) conta as linhas; a linha "Nao informado" (sk = -1) fica fora da conta, como pede o enunciado
+            n = banco.consultar(con, f"SELECT COUNT(*) FROM {tabela} WHERE {sk} > 0")[0][0]
+            print(f"   {tabela}: {n} (esperado {esperado}) -> {'OK' if n == esperado else 'DIVERGENTE'}")
+    except Exception as erro:
+        # Se qualquer passo falhar, desfaz o que ainda nao foi gravado e mostra o erro
+        con.rollback()
+        print(f"ERRO na carga, operacao desfeita: {erro}")
+        raise
+    finally:
+        con.close()
 
 
 if __name__ == "__main__":
