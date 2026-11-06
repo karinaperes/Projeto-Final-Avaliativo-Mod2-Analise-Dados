@@ -126,7 +126,7 @@ def main():
         | ~(fato["valor_unitario_homologado"] > 0)         # valor unitario homologado ausente ou <= 0
         | fato["sigiloso"]                                 # orcamento sigiloso
         # COMPLETE: valor total estimado menor que R$ 1  (use est)
-        | (est <= 1)
+        | (est < 1)
         # COMPLETE: valor total homologado mais de 1000 vezes o estimado (use hom e est)
         | (hom > 1000 * est)
         | (est > 1e12) | (hom > 1e12)                      # valores acima de R$ 1 trilhao (estouram o DECIMAL do banco)
