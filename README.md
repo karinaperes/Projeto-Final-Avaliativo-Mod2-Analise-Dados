@@ -385,20 +385,22 @@ psql -h localhost -U postgres -d pncp_controladoria -f sql/02_perguntas.sql   # 
 
 O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data limite, uma issue épica por Sprint e sub-issues para cada tarefa. Cada Sprint tem a sua branch (`sprint-N-...`) e termina com um Pull Request que fecha as issues concluídas.
 
-| Sprint | Objetivo | Período |
-|---|---|---|
-| 0 | Fundação e exploração dos dados | 18–19/10 |
-| 1 | Auditoria dos dados | 19–20/10 |
-| 2 | Limpeza (`src/limpeza.py`) | 20–29/10 |
-| 3 | Montar fato e dimensões | 30/10–06/11 |
-| 4 | Banco PostgreSQL | 06–07/11 |
-| 5 | Perguntas em SQL | 07/11 |
-| 6 | Power BI | 07–08/11 |
-| 7 | Documentação e entrega | 08–09/11 |
+| Sprint | Objetivo | Período | PR | Situação |
+|---|---|---|---|---|
+| 0 | Fundação e exploração dos dados | 18–19/10 | #57 | Concluída |
+| 1 | Auditoria dos dados | 19–20/10 | #58 | Concluída |
+| 2 | Limpeza (`src/limpeza.py`) | 20–29/10 | #59 | Concluída |
+| 3 | Montar fato e dimensões | 30/10–06/11 | #60 | Concluída |
+| 4 | Banco PostgreSQL | 06–07/11 | #62 | Concluída |
+| 5 | Perguntas em SQL | 07/11 | #63 | Concluída |
+| 6 | Power BI | 07–09/11 | #64 | 6 de 8 tarefas (menu e tooltip pendentes) |
+| 7 | Documentação e entrega | 09/11 | #64 | README, diagrama e figura das Sprints concluídos |
 
-**Replanejamento.** O plano inicial previa a entrega em 02/11. As Sprints 2 e 3 levaram mais tempo que o estimado e o prazo foi estendido em uma semana; as datas das Sprints 2 a 7 foram reajustadas no GitHub Projects (comparar os prints de início e de andamento abaixo).
+**Replanejamento.** O plano inicial previa a entrega em 02/11. As Sprints 2 e 3 levaram mais tempo que o estimado e o prazo foi estendido em uma semana; as datas das Sprints 2 a 7 foram reajustadas no GitHub Projects (comparar os prints de início, andamento e entrega abaixo). A Sprint 6 (Power BI) foi feita numa máquina virtual com Windows dentro do Fedora, porque o Power BI Desktop só roda no Windows.
 
-*Figura final das Sprints (`docs/img/sprints.png`): em construção (Sprint 7).*
+**Figura final das Sprints:**
+
+![Sprints](docs/img/sprints.png)
 
 ### Evolução do quadro
 
@@ -414,7 +416,11 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 ![Kanban em andamento](docs/img/planejamento/05-andamento-kanban.png)
 ![Tabela em andamento](docs/img/planejamento/06-andamento-tabela.png)
 
-*Entrega final: em construção.*
+**Entrega final (09/11)**
+
+![Kanban final](docs/img/planejamento/07-final-kanban.png)
+![Tabela final](docs/img/planejamento/08-final-tabela.png)
+![Milestones final](docs/img/planejamento/09-final-milestones.png)
 
 ## 14. Melhorias futuras
 
@@ -433,7 +439,7 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 
 ## 15. Vídeo
 
-Apresentação do projeto (até 7 minutos): **[link do vídeo no Google Drive](COLOCAR_LINK_AQUI)**
+*Vídeo não incluído nesta entrega.*
 
 ## 16. Autoria
 
