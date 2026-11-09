@@ -75,7 +75,7 @@ PNCP (CSVs brutos)  →  Python (auditoria e limpeza)  →  PostgreSQL (modelo e
 │   ├── raw/              # CSVs brutos do PNCP (fonte, não alterados)
 │   └── processed/        # tabelas tratadas geradas pelo pipeline (fora do Git)
 ├── docs/                 # enunciado, tutorial e imagens do README
-│   └── img/
+│   └── img/              # planejamento/ e dashboard/
 ├── notebooks/
 │   ├── 01_exploracao.ipynb   # entendimento das colunas e das sujeiras
 │   └── 02_auditoria.ipynb    # contagem de cada problema
@@ -85,11 +85,16 @@ PNCP (CSVs brutos)  →  Python (auditoria e limpeza)  →  PostgreSQL (modelo e
 │   ├── montar_tabelas.py     # regras de negócio: gera a fato e as 4 dimensões
 │   ├── banco.py              # conexão e carga em lote no PostgreSQL
 │   └── carregar.py           # cria o banco e carrega as tabelas
+├── sql/
+│   ├── 01_criar_banco.sql    # modelo estrela: tabelas, chaves e restrições
+│   ├── 02_perguntas.sql      # as 6 perguntas de negócio
+│   └── 03_validacao.sql      # conferência da carga com a prova real
+├── powerbi/
+│   ├── radar_compras_publicas.pbix   # dashboard
+│   └── radar_compras_publicas.pdf    # páginas exportadas
 ├── .env.example          # modelo das credenciais do banco
 └── requirements.txt      # dependências Python
 ```
-
-*Em construção: `sql/` e `powerbi/` entram nas Sprints 4 a 6.*
 
 ## 6. Dados
 
@@ -189,7 +194,80 @@ Os itens rejeitados não entram na fato. São erros de cadastro que distorceriam
 
 ## 9. Modelagem dimensional
 
-*Em construção (Sprint 4).*
+Modelo estrela no PostgreSQL: uma tabela fato com o grão **item contratado** (`numero_controle_pncp` + `numero_item`) e quatro dimensões. A dimensão de tempo é o Calendário criado em DAX no Power BI.
+
+```mermaid
+erDiagram
+    dim_orgao ||--o{ fato_item_contratado : "sk_orgao"
+    dim_fornecedor ||--o{ fato_item_contratado : "sk_fornecedor"
+    dim_modalidade ||--o{ fato_item_contratado : "sk_modalidade"
+    dim_localidade ||--o{ fato_item_contratado : "sk_localidade"
+
+    fato_item_contratado {
+        int sk_fato PK
+        varchar numero_controle_pncp "UNIQUE com numero_item"
+        int numero_item
+        int sk_orgao FK
+        int sk_fornecedor FK
+        int sk_modalidade FK
+        int sk_localidade FK
+        date data_publicacao
+        date data_homologacao "vazia pela regra 7"
+        text descricao_item
+        varchar perfil_gasto
+        decimal quantidade "CHECK > 0"
+        decimal valor_unitario_estimado
+        decimal valor_total_estimado
+        decimal valor_unitario_homologado
+        decimal valor_total_homologado
+        smallint comparavel "0 ou 1"
+        decimal economia_valor
+        int dias_ciclo
+    }
+    dim_orgao {
+        int sk_orgao PK
+        varchar cnpj_orgao "UNIQUE"
+        varchar nome_orgao
+        varchar poder
+    }
+    dim_fornecedor {
+        int sk_fornecedor PK
+        varchar ni_fornecedor "UNIQUE"
+        varchar nome_fornecedor
+        varchar tipo_pessoa
+        varchar porte
+    }
+    dim_modalidade {
+        int sk_modalidade PK
+        smallint modalidade_id "UNIQUE"
+        varchar nome_modalidade
+    }
+    dim_localidade {
+        int sk_localidade PK
+        char uf_sigla "UNIQUE"
+        varchar uf_nome
+        varchar regiao
+    }
+```
+
+| Tabela | Papel | Linhas |
+|---|---|---|
+| `fato_item_contratado` | O que foi comprado, por quem, de quem, como e onde | 6.126 |
+| `dim_orgao` | Quem comprou (unidade compradora, por CNPJ) | 363 |
+| `dim_fornecedor` | Quem vendeu (CNPJ, CPF ou documento estrangeiro) | 2.652 |
+| `dim_modalidade` | Como comprou | 7 |
+| `dim_localidade` | Onde (UF e região) | 27 |
+
+**Decisões do modelo (`sql/01_criar_banco.sql`):**
+
+- **Chaves substitutas (`sk_`)** em todas as tabelas; as dimensões guardam também a chave natural como `UNIQUE`. A fato não depende de CNPJ ou texto para se ligar às dimensões.
+- **Integridade referencial:** toda chave estrangeira da fato aponta para uma linha existente. Cada dimensão tem a linha de exceção **"Não informado" (`sk = -1`)**, fora da sequência 1, 2, 3…, para receber dado ausente. Nesta base, nenhuma chave ficou sem destino.
+- **O banco como segunda barreira:**
+  - `CHECK` rejeita quantidade ≤ 0, valor negativo e homologação anterior à publicação.
+  - `UNIQUE` em `numero_controle_pncp` + `numero_item` impede item duplicado.
+  - Valores em `DECIMAL`, nunca `float`.
+- **Carga (`src/carregar.py`):** recria o banco, executa o script de criação, carrega as dimensões antes da fato (por causa das chaves estrangeiras), envia cada tabela em lote e faz *rollback* se algo falhar. Ao final, confere as contagens com a prova real.
+- **Validação (`sql/03_validacao.sql`):** contagens, chaves sem par (0), itens repetidos (0) e os 12 totais da prova real, todos iguais aos esperados.
 
 ## 10. Resultados
 
@@ -212,11 +290,66 @@ A saída de `python -m src.montar_tabelas` bate com todos os totais de conferên
 
 A conferência também encontrou um erro durante o desenvolvimento: a regra "valor estimado menor que R$ 1" foi escrita com `<=` e excluía 11 itens válidos (110 rejeitados em vez de 99). Com o operador corrigido para `<`, todos os números bateram.
 
-*Respostas às 6 perguntas: em construção (Sprints 5 e 6).*
+### 10.2 Respostas às 6 perguntas
+
+Os números vêm das consultas de `sql/02_perguntas.sql` e são os mesmos das medidas do dashboard.
+
+| # | Pergunta | Resposta |
+|---|---|---|
+| 1 | **Economia:** quanto o governo economizou? | **R$ 992.861.686,95 (14,46%)** nos 5.457 itens comparáveis (89% da base). 27 itens saíram acima do estimado (sobrepreço). |
+| 2 | **Fornecedores:** quem concentra o orçamento? | Os **10 maiores fornecedores concentram 41,43%** do volume homologado. O maior, NOW SEGUROS SA, tem 13,18% com um único item de R$ 1,06 bilhão. |
+| 3 | **Modalidades:** qual economiza mais e qual movimenta mais? | **Concorrência - Eletrônica** movimenta 58,43% do volume (economia de 14,27%). **Pregão - Eletrônico** tem a maior economia, de **24,02%** (+9,6 p.p. acima da média). Credenciamento (26,6% do volume) não entra na economia, porque não tem disputa de preço. |
+| 4 | **Ciclo:** onde as compras demoram mais? | Ciclo médio de **48,1 dias** (máximo de 611). Entre os órgãos com 5 ou mais itens com ciclo, os mais lentos são a **UFCG (266,3 dias)**, o CONFEA (223,0) e o DNIT (156,2). 230 itens ficaram sem ciclo por terem homologação anterior à publicação. |
+| 5 | **Regional:** onde se gasta mais e onde há mais desconto? | O **Centro-Oeste concentra 44,25%** do volume (só o DF tem 38,98%, por ser sede dos órgãos federais). O **Norte tem o maior desconto (21,43%)** e o Sul, o menor (7,96%). |
+| 6 | **Perfil:** em que o dinheiro é gasto? | **Obras e engenharia: 60,8%** do volume em só 967 itens (16%). Serviços: 36,6%. Bens: 2,6% do volume, mas 3.310 itens (54%). |
 
 ## 11. Dashboard
 
-*Em construção (Sprint 6).*
+Arquivo: [`powerbi/radar_compras_publicas.pbix`](powerbi/radar_compras_publicas.pbix), também exportado em [PDF](powerbi/radar_compras_publicas.pdf). Os dados vêm do PostgreSQL pelo conector nativo, no modo Importar.
+
+**Modelo no Power BI:**
+
+- **Relacionamentos:** as 4 dimensões ligadas à fato (1:N, filtro em direção única), com as chaves técnicas ocultas.
+- **Calendário em DAX:** limites tirados dos dados (`MIN` da publicação e `MAX` da homologação), mês ordenado pelo número e marcado como tabela de datas. A data/hora automática do Power BI foi desligada.
+- **Relações do Calendário com a fato:** ativa com `data_publicacao` e inativa com `data_homologacao`. A relação inativa é usada pela medida `Volume por Data de Homologação`, com `USERELATIONSHIP`.
+
+**Medidas:** 20 medidas explícitas na tabela `Medidas`, em pastas por pergunta (P1 a P6 e Extras). Usam:
+
+- `VAR`/`RETURN`;
+- `CALCULATE`, `DIVIDE`, `ALL`, `ALLSELECTED`, `REMOVEFILTERS` e `KEEPFILTERS`;
+- `TOPN` e `RANKX`;
+- `SUMX` como iteradora;
+- `USERELATIONSHIP`.
+
+Percentuais são sempre soma ÷ soma. Destaques:
+
+| Medida | O que faz |
+|---|---|
+| `Economia (R$)` | Estimado comparável − homologado comparável, cada um numa `VAR` |
+| `Concentração Top 10 %` | `TOPN` pega os 10 maiores fornecedores; `KEEPFILTERS` soma só o volume deles e divide pelo total com `ALL` |
+| `Deságio vs Média Geral (p.p.)` | Economia % da linha − economia % geral (`REMOVEFILTERS`), em pontos percentuais |
+| `Ciclo Médio (mín. 5 itens)` | Devolve o ciclo só para órgãos com 5 ou mais itens com ciclo. Assim, o filtro "10 maiores" escolhe entre os órgãos válidos (um filtro de visual separado seria aplicado depois do Top 10) |
+| `Itens com Sobrepreço` | `SUMX` percorre os itens comparáveis e conta os que têm homologado > estimado |
+
+**Páginas:** cada página segue a mesma estrutura: **pergunta (título) → números (cartões e visuais) → conclusão**.
+
+**P1 Economia**
+![P1 Economia](docs/img/dashboard/p1-economia.png)
+
+**P2 Fornecedores**
+![P2 Fornecedores](docs/img/dashboard/p2-fornecedores.png)
+
+**P3 Modalidades**
+![P3 Modalidades](docs/img/dashboard/p3-modalidades.png)
+
+**P4 Ciclo**
+![P4 Ciclo](docs/img/dashboard/p4-ciclo.png)
+
+**P5 Regional**
+![P5 Regional](docs/img/dashboard/p5-regional.png)
+
+**P6 Perfil**
+![P6 Perfil](docs/img/dashboard/p6-perfil.png)
 
 ## 12. Como executar
 
@@ -237,7 +370,16 @@ python -m src.limpeza           # autoteste das funções: 54 de 54
 python -m src.montar_tabelas    # gera a fato e as dimensões em data/processed/ e imprime a conferência
 ```
 
-*Em construção: configuração do banco, carga e abertura do dashboard.*
+**Banco PostgreSQL:**
+
+```bash
+cp .env.example .env            # preencha usuário e senha do PostgreSQL
+python -m src.carregar          # recria o banco, cria as tabelas e carrega em lote
+psql -h localhost -U postgres -d pncp_controladoria -f sql/03_validacao.sql   # conferência
+psql -h localhost -U postgres -d pncp_controladoria -f sql/02_perguntas.sql   # as 6 perguntas
+```
+
+**Dashboard:** abra `powerbi/radar_compras_publicas.pbix` no Power BI Desktop. Para atualizar os dados com o seu banco: **Transformar dados → Configurações da fonte de dados**, troque o servidor e clique em **Atualizar**.
 
 ## 13. Planejamento em Sprints
 
@@ -276,11 +418,22 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 
 ## 14. Melhorias futuras
 
-*Em construção (Sprint 7).*
+- **Navegação no dashboard:** menu retrátil com botões e indicadores (bookmarks) e uma página de *tooltip* com o detalhe de cada UF e modalidade.
+- **Padronização de nomes de órgãos:** variações como "EDUCACAO,CIENCIA" e "EDUCACAO, CIENCIA" ainda aparecem como órgãos diferentes. Uma tabela de equivalência por raiz do CNPJ resolveria.
+- **Documentos estrangeiros (PE):** remover pontuação também nesses documentos, para unificar casos como `ES.TRA.NG0/0024-21` e `ESTRANG0002421`.
+- **Validação na origem:** as 230 homologações anteriores à publicação e os 99 itens rejeitados mostram que o sistema de origem aceita dados impossíveis. Regras de validação na entrada evitariam o retrabalho.
+- **Atualização automática:** consumir a API do PNCP e agendar o pipeline (extração, limpeza e carga) para manter o dashboard atualizado.
+- **Testes automatizados:** transformar o autoteste de `src/limpeza.py` e a conferência da prova real em testes com `pytest`.
+
+**Lições aprendidas:**
+
+- **Conferir com a prova real**, e não só ver se o código roda. Foi assim que apareceu o erro do `<=`, que excluía 11 itens válidos.
+- **Ambiente reprodutível:** uma atualização do sistema operacional trocou a versão do Python e quebrou o `.venv`. O `requirements.txt` permitiu recriá-lo em minutos.
+- **Replanejar:** as Sprints 2 e 3 levaram mais tempo que o estimado, e o cronograma foi refeito no GitHub Projects (seção 13).
 
 ## 15. Vídeo
 
-*Em construção (Sprint 7).*
+Apresentação do projeto (até 7 minutos): **[link do vídeo no Google Drive](COLOCAR_LINK_AQUI)**
 
 ## 16. Autoria
 
