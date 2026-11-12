@@ -313,7 +313,7 @@ Arquivo: [`powerbi/radar_compras_publicas.pbix`](powerbi/radar_compras_publicas.
 - **Calendário em DAX:** limites tirados dos dados (`MIN` da publicação e `MAX` da homologação), mês ordenado pelo número e marcado como tabela de datas. A data/hora automática do Power BI foi desligada.
 - **Relações do Calendário com a fato:** ativa com `data_publicacao` e inativa com `data_homologacao`. A relação inativa é usada pela medida `Volume por Data de Homologação`, com `USERELATIONSHIP`.
 
-**Medidas:** 20 medidas explícitas na tabela `Medidas`, em pastas por pergunta (P1 a P6 e Extras). Usam:
+**Medidas:** 21 medidas explícitas na tabela `Medidas`, em pastas por pergunta (P1 a P6 e Extras). Usam:
 
 - `VAR`/`RETURN`;
 - `CALCULATE`, `DIVIDE`, `ALL`, `ALLSELECTED`, `REMOVEFILTERS` e `KEEPFILTERS`;
@@ -330,6 +330,14 @@ Percentuais são sempre soma ÷ soma. Destaques:
 | `Deságio vs Média Geral (p.p.)` | Economia % da linha − economia % geral (`REMOVEFILTERS`), em pontos percentuais |
 | `Ciclo Médio (mín. 5 itens)` | Devolve o ciclo só para órgãos com 5 ou mais itens com ciclo. Assim, o filtro "10 maiores" escolhe entre os órgãos válidos (um filtro de visual separado seria aplicado depois do Top 10) |
 | `Itens com Sobrepreço` | `SUMX` percorre os itens comparáveis e conta os que têm homologado > estimado |
+
+**Navegação:**
+
+- **Menu retrátil** em todas as páginas: o botão ☰ abre um painel lateral com um botão para cada página (navegador de página), e o ✕ fecha.
+- **Abrir e fechar:** cada página tem dois indicadores (bookmarks), "Menu aberto" e "Menu fechado", que mostram ou ocultam o grupo do menu sem alterar os filtros.
+- **Página atual:** fica destacada no menu.
+- **Tooltip de página:** a página oculta `Tooltip` aparece ao passar o mouse nos gráficos por **UF** (P5) e por **modalidade** (P3). Ela mostra o volume homologado, a economia %, o total de itens e o ciclo médio do item, com um título dinâmico (medida `Título Tooltip`, com `SELECTEDVALUE` e `COALESCE`).
+- **Filtro cruzado:** clicar numa barra filtra os cartões e a tabela da página.
 
 **Páginas:** cada página segue a mesma estrutura: **pergunta (título) → números (cartões e visuais) → conclusão**.
 
@@ -393,10 +401,10 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 | 3 | Montar fato e dimensões | 30/10–06/11 | #60 | Concluída |
 | 4 | Banco PostgreSQL | 06–07/11 | #62 | Concluída |
 | 5 | Perguntas em SQL | 07/11 | #63 | Concluída |
-| 6 | Power BI | 07–09/11 | #64 | 6 de 8 tarefas (menu e tooltip pendentes) |
+| 6 | Power BI | 07–12/11 | #64, #66 | Concluída (menu e tooltip feitos após a extensão do prazo) |
 | 7 | Documentação e entrega | 09/11 | #64 | README, diagrama e figura das Sprints concluídos |
 
-**Replanejamento.** O plano inicial previa a entrega em 02/11. As Sprints 2 e 3 levaram mais tempo que o estimado e o prazo foi estendido em uma semana; as datas das Sprints 2 a 7 foram reajustadas no GitHub Projects (comparar os prints de início, andamento e entrega abaixo). A Sprint 6 (Power BI) foi feita numa máquina virtual com Windows dentro do Fedora, porque o Power BI Desktop só roda no Windows.
+**Replanejamento.** O plano inicial previa a entrega em 02/11. As Sprints 2 e 3 levaram mais tempo que o estimado e o prazo foi estendido em uma semana; as datas das Sprints 2 a 7 foram reajustadas no GitHub Projects (comparar os prints de início, andamento e entrega abaixo). A Sprint 6 (Power BI) foi feita numa máquina virtual com Windows dentro do Fedora, porque o Power BI Desktop só roda no Windows. Com uma nova extensão do prazo até 16/11, o menu retrátil e a página de tooltip, que tinham ficado pendentes na Sprint 6, foram concluídos.
 
 **Figura final das Sprints:**
 
@@ -424,7 +432,7 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 
 ## 14. Melhorias futuras
 
-- **Navegação no dashboard:** menu retrátil com botões e indicadores (bookmarks) e uma página de *tooltip* com o detalhe de cada UF e modalidade.
+- **Tooltip em mais visuais:** estender a página de tooltip aos gráficos de fornecedores, órgãos e perfil.
 - **Padronização de nomes de órgãos:** variações como "EDUCACAO,CIENCIA" e "EDUCACAO, CIENCIA" ainda aparecem como órgãos diferentes. Uma tabela de equivalência por raiz do CNPJ resolveria.
 - **Documentos estrangeiros (PE):** remover pontuação também nesses documentos, para unificar casos como `ES.TRA.NG0/0024-21` e `ESTRANG0002421`.
 - **Validação na origem:** as 230 homologações anteriores à publicação e os 99 itens rejeitados mostram que o sistema de origem aceita dados impossíveis. Regras de validação na entrada evitariam o retrabalho.
