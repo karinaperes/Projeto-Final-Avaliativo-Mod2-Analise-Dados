@@ -447,7 +447,9 @@ O trabalho foi organizado no GitHub Projects: um milestone por Sprint com data l
 
 ## 15. Vídeo
 
-*Vídeo não incluído nesta entrega.*
+Apresentação do projeto no formato de Review de Sprint (até 7 minutos):
+
+**[Assistir no YouTube](https://youtu.be/mQOzK9vNYWg)**
 
 ## 16. Autoria
 
